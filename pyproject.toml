@@ -9,5 +9,11 @@ python = "*"
 flask = "^1.0"
 flask_sqlalchemy = "^2.3"
 flask-migrate = "^2.2"
+"pdfminer.six" = "^20170720.0"
+spacy = "^2.0"
+click = "^6.7"
+flask-msearch = "^0.1.7"
+whoosh = "^2.7"
+blinker = "^1.4"
 
 [tool.poetry.dev-dependencies]
