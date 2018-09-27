@@ -1,0 +1,11 @@
+[Unit]
+Description=Start resume-parser
+
+[Service]
+Environment="FLASK_APP=app.py"
+Environment="FLASK_PORT=6000"
+WorkingDirectory=/var/www/resume-parser/
+ExecStart=/usr/local/bin/poetry run flask run
+
+[Install]
+WantedBy=multi-user.target
