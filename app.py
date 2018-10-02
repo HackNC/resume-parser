@@ -5,6 +5,7 @@ from flask_msearch import Search
 from werkzeug import secure_filename
 from flask_login import LoginManager, login_user, login_required, logout_user
 from flask_bcrypt import Bcrypt
+import csv
 
 import click
 import os
@@ -145,11 +146,16 @@ def add_hacker():
     db.session.commit()
     return redirect(url_for("index"))
 
-
 @app.route('/search', methods=['POST', 'GET'])
 @login_required
 def search():
     results = Hacker.query.msearch(request.form['search'], or_=True)
+    return render_template('search.html', results=results)
+
+@app.route('/all')
+@login_required
+def all():
+    results = Hacker.query.all()
     return render_template('search.html', results=results)
 
 @app.route('/uploads/<filename>')
@@ -165,6 +171,30 @@ def add_user(name, password):
     user = User(name, password)
     db.session.add(user)
     db.session.commit()
+
+@app.cli.command()
+@click.argument('filename')
+def bulk_upload(filename):
+    with open(filename, 'r') as f:
+        csv_reader = csv.reader(f, delimiter=',')
+        for i, row in enumerate(csv_reader):
+            if i == 0:
+                continue
+            custom = row[2].split("-")
+            if custom[0].strip() == "custom":
+                print(custom)
+                filename = row[0] + row[1] + ".pdf"
+                path = os.path.join(app.root_path, app.config['UPLOAD_FOLDER'], filename)
+            else:
+                split = row[2].split("/")
+                filename = split[len(split) - 2]
+                path = os.path.join(app.root_path, app.config['UPLOAD_FOLDER'], filename)
+
+            resume = convert_pdf_to_txt(path)
+            hacker = Hacker(name, filename, resume)
+            db.session.add(hacker)
+            db.session.commit()
+
 
 @app.cli.command()
 @click.argument('name')
