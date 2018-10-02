@@ -17,5 +17,6 @@ blinker = "^1.4"
 python-dotenv = "^0.9.1"
 flask-login = "^0.4.1"
 flask-bcrypt = "^0.7.1"
+zipfile2 = "^0.0.12"
 
 [tool.poetry.dev-dependencies]

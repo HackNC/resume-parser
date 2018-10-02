@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, send_from_directory, url_for, redirect
+from flask import Flask, render_template, request, send_from_directory, send_file, url_for, redirect
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_msearch import Search
@@ -16,10 +16,14 @@ from pdfminer.converter import TextConverter
 from pdfminer.layout import LAParams
 from pdfminer.pdfpage import PDFPage
 
+import zipfile
+import zlib
+
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data.db'
 app.config['UPLOAD_FOLDER'] = "resumes"
 app.config['SECRET_KEY'] = os.getenv("SECRET_KEY")
+app.config['ZIP_FOLDER'] = "tmp"
 
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
@@ -150,7 +154,7 @@ def add_hacker():
 @login_required
 def search():
     results = Hacker.query.msearch(request.form['search'], or_=True)
-    return render_template('search.html', results=results)
+    return render_template('search.html', results=results, search=request.form['search'])
 
 @app.route('/all')
 @login_required
@@ -163,6 +167,18 @@ def all():
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'],
                                filename)
+
+@app.route('/downloadzip/<search>', methods=['GET'])
+@login_required
+def download_zip(search):
+    results = Hacker.query.msearch(search, or_=True)
+    filenames = [f.filename for f in results]
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
+            for filename in filenames:
+                zip_file.write(app.config['UPLOAD_FOLDER'] + '/' + filename)
+    zip_buffer.seek(0)
+    return send_file(zip_buffer, attachment_filename='HackNC_Resumes_Search_{}.zip'.format(search), as_attachment=True)
 
 @app.cli.command()
 @click.argument('name')

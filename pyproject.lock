@@ -285,8 +285,17 @@ platform = "UNKNOWN"
 python-versions = "*"
 version = "2.7.4"
 
+[[package]]
+category = "main"
+description = "An improved ZipFile class."
+name = "zipfile2"
+optional = false
+platform = "UNKNOWN"
+python-versions = "*"
+version = "0.0.12"
+
 [metadata]
-content-hash = "82cfd950b6a93f04ad9a9a64c2d6d19f0bb8399830602d2eecbc956e35044bac"
+content-hash = "3938fad1838dc4f06590ed16362f470758046b6d1f4fdd0e2dce347ecdc295ed"
 platform = "*"
 python-versions = "*"
 
@@ -317,3 +326,4 @@ six = ["70e8a77beed4562e7f14fe23a786b54f6296e34344c23bc42f07b15018ff98e9", "832d
 sqlalchemy = ["ef6569ad403520ee13e180e1bfd6ed71a0254192a934ec1dbd3dbf48f4aa9524"]
 werkzeug = ["c3fd7a7d41976d9f44db327260e263132466836cef6f91512889ed60ad26557c", "d5da73735293558eb1651ee2fddc4d0dedcfa06538b8813a2e20011583c9e49b"]
 whoosh = ["7ca5633dbfa9e0e0fa400d3151a8a0c4bec53bd2ecedc0a67705b17565c31a83", "aa39c3c3426e3fd107dcb4bde64ca1e276a65a889d9085a6e4b54ba82420a852", "e0857375f63e9041e03fedd5b7541f97cf78917ac1b6b06c1fcc9b45375dda69"]
+zipfile2 = ["7376f7c968717ac895ef862da913e790cf1b518caf56c4822c04684c46a8a608", "b9adf577d825461480e485027116c035f666b72ac3911af71aa93da6e0579eb8"]
