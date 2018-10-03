@@ -254,12 +254,15 @@ def index():
     if request.method == 'POST':
         if request.form['search'] is None or len(request.form['search'].split()) == 0:
             results = es.search(index="hacknc-2018-index", size=2000, body={"query": {"match_all": {}}})
+            search = ""
         else:
             results = es.search(index="hacknc-2018-index", size=2000, body={"query":
                 {"match": {'content': {'operator': 'and', 'query':
                     request.form['search']}}}})
+            search = request.form['search']
     else:
         results = es.search(index="hacknc-2018-index", size=2000, body={"query": {"match_all": {}}})
+        search = ""
 
     return render_template('search.html', results=results['hits']['hits'],
-            total=results['hits']['total'], search=request.form['search'])
+            total=results['hits']['total'], search=search)
