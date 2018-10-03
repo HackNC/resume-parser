@@ -9,6 +9,7 @@ import csv
 
 import click
 import os
+import sys
 
 import io
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
@@ -175,8 +176,15 @@ def download_zip(search):
     filenames = [f.filename for f in results]
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
-            for filename in filenames:
+        for filename in filenames:
+            print(filename)
+            path = os.path.join(app.root_path, app.config['UPLOAD_FOLDER'], filename)
+            os.utime(path,(1330712280, 1330712292))
+            try:
                 zip_file.write(app.config['UPLOAD_FOLDER'] + '/' + filename)
+            except:
+                print(filename + " something something file before 1980", file=sys.stderr)
+
     zip_buffer.seek(0)
     return send_file(zip_buffer, attachment_filename='HackNC_Resumes_Search_{}.zip'.format(search), as_attachment=True)
 
