@@ -1,7 +1,6 @@
 from flask import Flask, render_template, request, send_from_directory, send_file, url_for, redirect
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from flask_msearch import Search
 from werkzeug import secure_filename
 from flask_login import LoginManager, login_user, login_required, logout_user
 from flask_bcrypt import Bcrypt
@@ -20,6 +19,10 @@ from pdfminer.pdfpage import PDFPage
 import zipfile
 import zlib
 
+from elasticsearch import Elasticsearch
+
+es = Elasticsearch()
+
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data.db'
 app.config['UPLOAD_FOLDER'] = "resumes"
@@ -28,9 +31,6 @@ app.config['ZIP_FOLDER'] = "tmp"
 
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
-
-search = Search()
-search.init_app(app)
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -70,7 +70,6 @@ def load_user(user_id):
 
 class Hacker(db.Model):
     __tablename__ = 'hacker'
-    __searchable__ = ['name', 'resume']
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128))
@@ -117,6 +116,8 @@ def create_hacker(name, path):
     db.session.add(hacker)
     db.session.commit()
 
+    es.index(index="hacknc-2018-index", doc_type='resume', id=hacker.id, body={'name': hacker.name, 'filename':hacker.filename, 'content': hacker.resume}) 
+
 @app.route('/logout')
 def logout():
     logout_user()
@@ -149,19 +150,22 @@ def add_hacker():
     hacker = Hacker(name, filename, resume)
     db.session.add(hacker)
     db.session.commit()
+    es.index(index="hacknc-2018-index", doc_type='resume', id=hacker.id, body={'name': hacker.name, 'filename':hacker.filename, 'content': hacker.resume}) 
     return redirect(url_for("index"))
 
 @app.route('/search', methods=['POST', 'GET'])
 @login_required
 def search():
-    results = Hacker.query.msearch(request.form['search'], or_=True)
-    return render_template('search.html', results=results, search=request.form['search'])
+    es.indices.refresh(index="hacknc-2018-index")
+    results = es.search(index="hacknc-2018-index", size=2000, body={"query": {"fuzzy": {'content': request.form['search']}}})
+    return render_template('search.html', total=results['hits']['total'], results=results['hits']['hits'], search=request.form['search'])
 
 @app.route('/all')
 @login_required
 def all():
-    results = Hacker.query.all()
-    return render_template('search.html', results=results)
+    results = es.search(index="hacknc-2018-index", size=2000, body={"query": {"match_all": {}}})
+    return render_template('search.html', results=results['hits']['hits'],
+            total=results['hits']['total'])
 
 @app.route('/uploads/<filename>')
 @login_required
@@ -172,8 +176,8 @@ def uploaded_file(filename):
 @app.route('/downloadzip/<search>', methods=['GET'])
 @login_required
 def download_zip(search):
-    results = Hacker.query.msearch(search, or_=True)
-    filenames = [f.filename for f in results]
+    results = es.search(index="hacknc-2018-index", size=2000, body={"query": {"fuzzy": {'content': search}}})
+    filenames = [f['_source']['filename'] for f in results['hits']['hits']]
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
         for filename in filenames:
@@ -229,6 +233,7 @@ def bulk_upload(filename):
                 try:
                     db.session.add(hacker)
                     db.session.commit()
+                    es.index(index="hacknc-2018-index", doc_type='resume', id=hacker.id, body={'name': hacker.name, 'filename':hacker.filename, 'content': hacker.resume}) 
                 except:
                     print("already added or db error")
 
@@ -240,13 +245,10 @@ def bulk_upload(filename):
 @app.cli.command()
 @click.argument('name')
 def search_hackers(name):
-    results = Hacker.query.msearch(name)
-    for result in results:
-        print(result.name)
-
-@app.cli.command()
-def create_index():
-    search.create_index(update=True)
+    es.indices.refresh(index="hacknc-2018-index")
+    results = es.search(index="hacknc-2018-index", size=2000, body={"query": {"fuzzy": {'content': search}}})
+    for result in results['hits']['hits']:
+        print(result['_source']['name'])
 
 @app.route("/")
 @login_required
