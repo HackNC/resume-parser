@@ -206,10 +206,27 @@ def bulk_upload(filename):
                 filename = split[len(split) - 2]
                 path = os.path.join(app.root_path, app.config['UPLOAD_FOLDER'], filename)
 
-            resume = convert_pdf_to_txt(path)
-            hacker = Hacker(name, filename, resume)
-            db.session.add(hacker)
-            db.session.commit()
+            extension = filename.split(".")
+            extension = extension[len(extension) - 1]
+
+            name = row[0] + " " + row[1]
+
+            if extension != "pdf":
+                continue
+
+            print(path)
+            try:
+                resume = convert_pdf_to_txt(path)
+                hacker = Hacker(name, filename, resume)
+                try:
+                    db.session.add(hacker)
+                    db.session.commit()
+                except:
+                    print("already added or db error")
+
+                print(hacker.name)
+            except:
+                print("error on " + filename + " with name " + name)
 
 
 @app.cli.command()
