@@ -137,35 +137,24 @@ def login():
     else:
         return render_template("login.html")
 
-@app.route('/add', methods=['POST'])
+@app.route('/add', methods=['POST', 'GET'])
 @login_required
 def add_hacker():
-    name = request.form['hacker-name']
-    uploaded_file = request.files['file-upload']
-    filename = secure_filename(uploaded_file.filename)
-    path = os.path.join(app.root_path, app.config['UPLOAD_FOLDER'], filename)
-    uploaded_file.save(path)
+    if request.method == 'POST':
+        name = request.form['hacker-name']
+        uploaded_file = request.files['file-upload']
+        filename = secure_filename(uploaded_file.filename)
+        path = os.path.join(app.root_path, app.config['UPLOAD_FOLDER'], filename)
+        uploaded_file.save(path)
 
-    resume = convert_pdf_to_txt(path)
-    hacker = Hacker(name, filename, resume)
-    db.session.add(hacker)
-    db.session.commit()
-    es.index(index="hacknc-2018-index", doc_type='resume', id=hacker.id, body={'name': hacker.name, 'filename':hacker.filename, 'content': hacker.resume}) 
-    return redirect(url_for("index"))
-
-@app.route('/search', methods=['POST', 'GET'])
-@login_required
-def search():
-    es.indices.refresh(index="hacknc-2018-index")
-    results = es.search(index="hacknc-2018-index", size=2000, body={"query": {"fuzzy": {'content': request.form['search']}}})
-    return render_template('search.html', total=results['hits']['total'], results=results['hits']['hits'], search=request.form['search'])
-
-@app.route('/all')
-@login_required
-def all():
-    results = es.search(index="hacknc-2018-index", size=2000, body={"query": {"match_all": {}}})
-    return render_template('search.html', results=results['hits']['hits'],
-            total=results['hits']['total'])
+        resume = convert_pdf_to_txt(path)
+        hacker = Hacker(name, filename, resume)
+        db.session.add(hacker)
+        db.session.commit()
+        es.index(index="hacknc-2018-index", doc_type='resume', id=hacker.id, body={'name': hacker.name, 'filename':hacker.filename, 'content': hacker.resume}) 
+        return redirect(url_for("index"))
+    else:
+        return render_template('add.html')
 
 @app.route('/uploads/<filename>')
 @login_required
@@ -176,7 +165,7 @@ def uploaded_file(filename):
 @app.route('/downloadzip/<search>', methods=['GET'])
 @login_required
 def download_zip(search):
-    results = es.search(index="hacknc-2018-index", size=2000, body={"query": {"fuzzy": {'content': search}}})
+    results = es.search(index="hacknc-2018-index", size=2000, body={"query": {"match": {'content': search}}})
     filenames = [f['_source']['filename'] for f in results['hits']['hits']]
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
@@ -241,16 +230,25 @@ def bulk_upload(filename):
             except:
                 print("error on " + filename + " with name " + name)
 
-
 @app.cli.command()
 @click.argument('name')
 def search_hackers(name):
     es.indices.refresh(index="hacknc-2018-index")
-    results = es.search(index="hacknc-2018-index", size=2000, body={"query": {"fuzzy": {'content': search}}})
+    results = es.search(index="hacknc-2018-index", size=2000, body={"query": {"match": {'content': search}}})
     for result in results['hits']['hits']:
         print(result['_source']['name'])
 
-@app.route("/")
+@app.route("/", methods=['POST', 'GET'])
 @login_required
 def index():
-    return render_template("index.html")
+    es.indices.refresh(index="hacknc-2018-index")
+
+    if request.method == 'POST':
+        results = es.search(index="hacknc-2018-index", size=2000, body={"query":
+            {"match": {'content': {'operator': 'and', 'query':
+                request.form['search']}}}})
+    else:
+        results = es.search(index="hacknc-2018-index", size=2000, body={"query": {"match_all": {}}})
+
+    return render_template('search.html', results=results['hits']['hits'],
+            total=results['hits']['total'])
