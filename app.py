@@ -163,9 +163,17 @@ def uploaded_file(filename):
                                filename)
 
 @app.route('/downloadzip/<search>', methods=['GET'])
+@app.route('/downloadzip/', methods=['GET'])
+@app.route('/downloadzip', methods=['GET'])
 @login_required
-def download_zip(search):
-    results = es.search(index="hacknc-2018-index", size=2000, body={"query": {"match": {'content': search}}})
+def download_zip(search=None):
+    if search is None or len(search.split()) == 0:
+        results = es.search(index="hacknc-2018-index", size=2000, body={"query": {"match_all": {}}})
+    else:
+        results = es.search(index="hacknc-2018-index", size=2000, body={"query":
+            {"match": {'content': {'operator': 'and', 'query':
+                request.form['search']}}}})
+
     filenames = [f['_source']['filename'] for f in results['hits']['hits']]
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
@@ -244,9 +252,12 @@ def index():
     es.indices.refresh(index="hacknc-2018-index")
 
     if request.method == 'POST':
-        results = es.search(index="hacknc-2018-index", size=2000, body={"query":
-            {"match": {'content': {'operator': 'and', 'query':
-                request.form['search']}}}})
+        if request.form['search'] is None or len(request.form['search'].split()) == 0:
+            results = es.search(index="hacknc-2018-index", size=2000, body={"query": {"match_all": {}}})
+        else:
+            results = es.search(index="hacknc-2018-index", size=2000, body={"query":
+                {"match": {'content': {'operator': 'and', 'query':
+                    request.form['search']}}}})
     else:
         results = es.search(index="hacknc-2018-index", size=2000, body={"query": {"match_all": {}}})
 
