@@ -17,7 +17,6 @@ from pdfminer.layout import LAParams
 from pdfminer.pdfpage import PDFPage
 
 import zipfile
-import zlib
 
 from elasticsearch import Elasticsearch
 
@@ -27,7 +26,6 @@ app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data.db'
 app.config['UPLOAD_FOLDER'] = "resumes"
 app.config['SECRET_KEY'] = os.getenv("SECRET_KEY")
-app.config['ZIP_FOLDER'] = "tmp"
 
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
@@ -172,17 +170,19 @@ def download_zip(search=None):
     else:
         results = es.search(index="hacknc-2018-index", size=2000, body={"query":
             {"match": {'content': {'operator': 'and', 'query':
-                request.form['search']}}}})
+               search }}}})
+
 
     filenames = [f['_source']['filename'] for f in results['hits']['hits']]
     zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
+    with zipfile.ZipFile(zip_buffer, mode="a", compression=zipfile.ZIP_DEFLATED) as zip_file:
+        zip_file.write(app.config['UPLOAD_FOLDER'], compress_type=zipfile.ZIP_STORED)
         for filename in filenames:
             print(filename)
-            path = os.path.join(app.root_path, app.config['UPLOAD_FOLDER'], filename)
+            path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             os.utime(path,(1330712280, 1330712292))
             try:
-                zip_file.write(app.config['UPLOAD_FOLDER'] + '/' + filename)
+                zip_file.write(path, compress_type=zipfile.ZIP_DEFLATED)
             except:
                 print(filename + " something something file before 1980", file=sys.stderr)
 
@@ -262,4 +262,4 @@ def index():
         results = es.search(index="hacknc-2018-index", size=2000, body={"query": {"match_all": {}}})
 
     return render_template('search.html', results=results['hits']['hits'],
-            total=results['hits']['total'])
+            total=results['hits']['total'], search=request.form['search'])
